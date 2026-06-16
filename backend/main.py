@@ -17,14 +17,17 @@ from routers import log, nudge
 
 app = FastAPI(title="CarbonLens API", version="0.1.0")
 
-# Allow the Vite dev server (and any frontend) to call this API.
-# Tighten this list before deploying to production.
+origins = [
+    "http://localhost:5173",
+    "https://carbonlens-app.netlify.app",  # Live Netlify frontend link
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["*"],  # Allows all HTTP methods (GET, POST, etc.)
+    allow_headers=["*"],  # Allows all headers
 )
 
 app.include_router(log.router)
