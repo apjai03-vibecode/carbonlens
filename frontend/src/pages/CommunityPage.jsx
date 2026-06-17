@@ -227,6 +227,7 @@ export default function CommunityPage() {
                 <button
                   onClick={() => setJoinedChallenge(!joinedChallenge)}
                   className="focus:outline-none transition-transform active:scale-95"
+                  aria-label={joinedChallenge ? "Leave weekly challenge" : "Join weekly challenge"}
                 >
                   {joinedChallenge ? (
                     <ToggleRight className="h-8 w-8 text-emerald-600" />

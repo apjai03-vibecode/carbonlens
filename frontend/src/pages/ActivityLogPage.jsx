@@ -164,8 +164,10 @@ export default function ActivityLogPage() {
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="text-xs font-semibold text-slate-500 block mb-1">Category</label>
+                <label htmlFor="category-select" className="text-xs font-semibold text-slate-500 block mb-1">Category</label>
                 <select
+                  id="category-select"
+                  aria-label="Category"
                   value={category}
                   onChange={(e) => setCategory(e.target.value)}
                   className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent transition-all capitalize"
@@ -179,8 +181,10 @@ export default function ActivityLogPage() {
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-slate-500 block mb-1">Activity Type</label>
+                <label htmlFor="activity-select" className="text-xs font-semibold text-slate-500 block mb-1">Activity Type</label>
                 <select
+                  id="activity-select"
+                  aria-label="Activity Type"
                   value={activity}
                   onChange={(e) => setActivity(e.target.value)}
                   className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent transition-all"
@@ -194,11 +198,13 @@ export default function ActivityLogPage() {
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-slate-500 block mb-1">
+                <label htmlFor="quantity-input" className="text-xs font-semibold text-slate-500 block mb-1">
                   Quantity ({unitLabel})
                 </label>
                 <input
                   type="number"
+                  id="quantity-input"
+                  aria-label={`Quantity in ${unitLabel}`}
                   required
                   min="0.1"
                   step="any"
@@ -283,6 +289,7 @@ export default function ActivityLogPage() {
                               onClick={() => handleDelete(log.id)}
                               className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-all"
                               title="Delete Log"
+                              aria-label="Delete log"
                             >
                               <Trash2 className="h-4 w-4" />
                             </button>
@@ -342,6 +349,7 @@ export default function ActivityLogPage() {
                           onClick={() => handleDelete(log.id)}
                           className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-all"
                           title="Delete Entry"
+                          aria-label="Delete entry"
                         >
                           <Trash2 className="h-4 w-4" />
                         </button>

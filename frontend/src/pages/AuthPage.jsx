@@ -142,7 +142,7 @@ export default function AuthPage() {
           <form onSubmit={handleSubmit} className="space-y-4">
             {!isLogin && (
               <div>
-                <label className="text-xs font-semibold text-slate-500 block mb-1">
+                <label htmlFor="name-input" className="text-xs font-semibold text-slate-500 block mb-1">
                   Full Name
                 </label>
                 <div className="relative">
@@ -151,6 +151,8 @@ export default function AuthPage() {
                   </div>
                   <input
                     type="text"
+                    id="name-input"
+                    aria-label="Full Name"
                     required
                     value={displayName}
                     onChange={(e) => setDisplayName(e.target.value)}
@@ -162,7 +164,7 @@ export default function AuthPage() {
             )}
 
             <div>
-              <label className="text-xs font-semibold text-slate-500 block mb-1">
+              <label htmlFor="email-input" className="text-xs font-semibold text-slate-500 block mb-1">
                 Email Address
               </label>
               <div className="relative">
@@ -171,6 +173,8 @@ export default function AuthPage() {
                 </div>
                 <input
                   type="email"
+                  id="email-input"
+                  aria-label="Email Address"
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -181,7 +185,7 @@ export default function AuthPage() {
             </div>
 
             <div>
-              <label className="text-xs font-semibold text-slate-500 block mb-1">
+              <label htmlFor="password-input" className="text-xs font-semibold text-slate-500 block mb-1">
                 Password
               </label>
               <div className="relative">
@@ -190,6 +194,8 @@ export default function AuthPage() {
                 </div>
                 <input
                   type="password"
+                  id="password-input"
+                  aria-label="Password"
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}

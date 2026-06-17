@@ -279,6 +279,7 @@ export default function DashboardPage() {
                             onClick={() => handleDelete(log.id)}
                             className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-all"
                             title="Delete Entry"
+                            aria-label="Delete entry"
                           >
                             <Trash2 className="h-4 w-4" />
                           </button>

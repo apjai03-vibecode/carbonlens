@@ -3,6 +3,44 @@ import { useGoogleMaps } from '../context/GoogleMapsContext';
 import { useAuth } from '../context/AuthContext';
 import { saveActivityLog } from '../firebase';
 import { MapPin, Search, Navigation, Car, Bus, Bike, Footprints, AlertTriangle, ArrowRight, Check } from 'lucide-react';
+import { APIProvider, Map, useMap, useMapsLibrary } from '@vis.gl/react-google-maps';
+
+// Sub-component to render route polyline on Map canvas
+function DirectionsRendererComponent({ directions }) {
+  const map = useMap();
+  const routesLibrary = useMapsLibrary('routes');
+  const [renderer, setRenderer] = useState(null);
+
+  useEffect(() => {
+    if (!routesLibrary || !map) return;
+    const dirRenderer = new routesLibrary.DirectionsRenderer({ map });
+    setRenderer(dirRenderer);
+    return () => {
+      dirRenderer.setMap(null);
+    };
+  }, [routesLibrary, map]);
+
+  useEffect(() => {
+    if (!renderer || !directions) return;
+    renderer.setDirections(directions);
+
+    // Zoom and pan the map to fit the route bounds
+    if (directions.routes && directions.routes.length > 0) {
+      const bounds = new window.google.maps.LatLngBounds();
+      const route = directions.routes[0];
+      route.legs.forEach(leg => {
+        leg.steps.forEach(step => {
+          step.path.forEach(latLng => {
+            bounds.extend(latLng);
+          });
+        });
+      });
+      map.fitBounds(bounds);
+    }
+  }, [renderer, directions, map]);
+
+  return null;
+}
 
 export default function TripPlannerPage() {
   const { user } = useAuth();
@@ -13,12 +51,12 @@ export default function TripPlannerPage() {
   const [loading, setLoading] = useState(false);
   const [routeResults, setRouteResults] = useState(null);
   const [logSuccess, setLogSuccess] = useState(null);
+  const [drivingDirections, setDrivingDirections] = useState(null);
 
   const originInputRef = useRef(null);
   const destInputRef = useRef(null);
-  const mapRef = useRef(null);
-  const [mapInstance, setMapInstance] = useState(null);
-  const [directionsRenderer, setDirectionsRenderer] = useState(null);
+
+  const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
 
   // Setup Autocomplete if Google Maps is loaded
   useEffect(() => {
@@ -49,60 +87,17 @@ export default function TripPlannerPage() {
     }
   }, [isLoaded, apiKeySet]);
 
-  // Setup Map Instance once mapRef is available and maps loaded
-  useEffect(() => {
-    if (isLoaded && mapRef.current && window.google && apiKeySet && !mapInstance) {
-      const map = new window.google.maps.Map(mapRef.current, {
-        center: { lat: 40.7128, lng: -74.0060 }, // NYC Default
-        zoom: 12,
-        styles: [
-          {
-            "featureType": "water",
-            "elementType": "geometry",
-            "stylers": [{ "color": "#e9e9e9" }, { "lightness": 17 }]
-          },
-          {
-            "featureType": "landscape",
-            "elementType": "geometry",
-            "stylers": [{ "color": "#f5f5f5" }, { "lightness": 20 }]
-          },
-          {
-            "featureType": "road.highway",
-            "elementType": "geometry.fill",
-            "stylers": [{ "color": "#ffffff" }, { "lightness": 17 }]
-          },
-          {
-            "featureType": "poi",
-            "elementType": "geometry",
-            "stylers": [{ "color": "#f5f5f5" }, { "lightness": 21 }]
-          },
-          {
-            "featureType": "poi.park",
-            "elementType": "geometry",
-            "stylers": [{ "color": "#dedede" }, { "lightness": 21 }]
-          }
-        ]
-      });
-
-      const renderer = new window.google.maps.DirectionsRenderer();
-      renderer.setMap(map);
-
-      setMapInstance(map);
-      setDirectionsRenderer(renderer);
-    }
-  }, [isLoaded, apiKeySet, mapInstance]);
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!origin.trim() || !destination.trim()) return;
 
     setLoading(true);
     setLogSuccess(null);
+    setDrivingDirections(null);
 
-    // Mode mappings & rates
-    // Driving -> DRIVING, Transit -> TRANSIT, Cycling -> BICYCLING, Walking -> WALKING
-    if (isLoaded && window.google && apiKeySet && directionsRenderer) {
+    if (isLoaded && window.google && apiKeySet) {
       const directionsService = new window.google.maps.DirectionsService();
+      const distanceMatrixService = new window.google.maps.DistanceMatrixService();
 
       try {
         const fetchRoute = (mode) => {
@@ -124,16 +119,16 @@ export default function TripPlannerPage() {
           });
         };
 
-        // Try to fetch driving route first to display on map and get baseline
+        // Try to fetch driving route first to get geometry
         const drivingResult = await fetchRoute('DRIVING');
-        directionsRenderer.setDirections(drivingResult);
+        setDrivingDirections(drivingResult);
 
-        // Fetch transit route (might throw if transit not available)
+        // Fetch transit route
         let transitResult = null;
         try {
           transitResult = await fetchRoute('TRANSIT');
         } catch (e) {
-          console.warn(e);
+          console.warn('Transit route not available:', e);
         }
 
         // Fetch bicycling route
@@ -141,7 +136,7 @@ export default function TripPlannerPage() {
         try {
           bicyclingResult = await fetchRoute('BICYCLING');
         } catch (e) {
-          console.warn(e);
+          console.warn('Bicycling route not available:', e);
         }
 
         // Fetch walking route
@@ -149,7 +144,7 @@ export default function TripPlannerPage() {
         try {
           walkingResult = await fetchRoute('WALKING');
         } catch (e) {
-          console.warn(e);
+          console.warn('Walking route not available:', e);
         }
 
         // Parse distances & durations
@@ -168,6 +163,37 @@ export default function TripPlannerPage() {
         };
 
         const parsedDriving = getRouteDetails(drivingResult, 0.192); // 0.192 kg CO2/km
+
+        // Use DistanceMatrixService to fetch live traffic times for driving if available
+        try {
+          const matrixResponse = await new Promise((resolve, reject) => {
+            distanceMatrixService.getDistanceMatrix(
+              {
+                origins: [origin],
+                destinations: [destination],
+                travelMode: window.google.maps.TravelMode.DRIVING,
+                drivingOptions: {
+                  departureTime: new Date(),
+                  trafficModel: 'bestguess',
+                },
+              },
+              (response, status) => {
+                if (status === 'OK') resolve(response);
+                else reject(new Error(`Distance Matrix failed: ${status}`));
+              }
+            );
+          });
+          const element = matrixResponse.rows[0].elements[0];
+          if (element && element.status === 'OK') {
+            const trafficDurationMins = Math.round(
+              element.duration_in_traffic ? element.duration_in_traffic.value / 60 : element.duration.value / 60
+            );
+            parsedDriving.durationMinutes = trafficDurationMins;
+          }
+        } catch (matrixErr) {
+          console.warn('Distance Matrix Service skipped:', matrixErr);
+        }
+
         const parsedTransit = getRouteDetails(transitResult, 0.105) || {
           distanceKm: +(parsedDriving.distanceKm * 1.1).toFixed(1),
           distanceMiles: +(parsedDriving.distanceMiles * 1.1).toFixed(1),
@@ -199,7 +225,6 @@ export default function TripPlannerPage() {
         });
       } catch (err) {
         console.error("Maps Service Error:", err);
-        // Fall back to simulation on direction service failure
         fallbackToSimulation();
       } finally {
         setLoading(false);
@@ -249,7 +274,7 @@ export default function TripPlannerPage() {
 
       await saveActivityLog(user.uid, payload);
       setLogSuccess(modeKey);
-      
+
       // Reset success banner after 3 seconds
       setTimeout(() => {
         setLogSuccess(null);
@@ -259,7 +284,6 @@ export default function TripPlannerPage() {
     }
   };
 
-  // Smartphone equivalents calculations (Relative to driving baseline)
   const getSmartphoneSaving = (drivingCo2, modeCo2) => {
     const saved = drivingCo2 - modeCo2;
     if (saved <= 0) return 0;
@@ -275,21 +299,23 @@ export default function TripPlannerPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
+
         {/* Left Column: Form Controls */}
         <div className="lg:col-span-1 space-y-6">
           <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
             <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4">Route Information</h3>
-            
+
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="text-xs font-semibold text-slate-500 block mb-1">Starting Point</label>
+                <label htmlFor="origin-input" className="text-xs font-semibold text-slate-500 block mb-1">Starting Point</label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
                     <MapPin className="h-4 w-4" />
                   </div>
                   <input
                     type="text"
+                    id="origin-input"
+                    aria-label="Starting Point"
                     ref={originInputRef}
                     required
                     value={origin}
@@ -301,13 +327,15 @@ export default function TripPlannerPage() {
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-slate-500 block mb-1">Destination</label>
+                <label htmlFor="destination-input" className="text-xs font-semibold text-slate-500 block mb-1">Destination</label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
                     <Navigation className="h-4 w-4" />
                   </div>
                   <input
                     type="text"
+                    id="destination-input"
+                    aria-label="Destination"
                     ref={destInputRef}
                     required
                     value={destination}
@@ -348,20 +376,28 @@ export default function TripPlannerPage() {
         {/* Right Column: Comparison Matrix & Map */}
         <div className="lg:col-span-2 space-y-6">
           {/* Map Display */}
-          <div 
-            ref={mapRef}
-            className={`w-full h-64 md:h-80 bg-slate-100 rounded-3xl border border-slate-200 overflow-hidden relative shadow-sm ${
-              !apiKeySet ? 'flex flex-col items-center justify-center text-center p-6' : ''
-            }`}
-          >
-            {!apiKeySet && (
-              <div className="space-y-3 max-w-sm">
+          <div className="w-full h-64 md:h-80 bg-slate-100 rounded-3xl border border-slate-200 overflow-hidden relative shadow-sm">
+            {isLoaded && apiKeySet && apiKey ? (
+              <APIProvider apiKey={apiKey}>
+                <Map
+                  defaultCenter={{ lat: 40.7128, lng: -74.0060 }}
+                  defaultZoom={12}
+                  gestureHandling={'cooperative'}
+                  disableDefaultUI={true}
+                >
+                  <DirectionsRendererComponent directions={drivingDirections} />
+                </Map>
+              </APIProvider>
+            ) : (
+              <div className="flex flex-col items-center justify-center text-center p-6 space-y-3 h-full">
                 <div className="h-12 w-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center mx-auto text-emerald-600">
                   <Navigation className="h-6 w-6" />
                 </div>
-                <h4 className="font-bold text-slate-800 text-sm">Interactive Map Unavailable</h4>
-                <p className="text-xs text-slate-500 leading-relaxed">
-                  Provide a <code>VITE_GOOGLE_MAPS_API_KEY</code> in your environment parameters to load active map tiles and trace routes.
+                <h4 className="font-bold text-slate-800 text-sm">Interactive Map Mode</h4>
+                <p className="text-xs text-slate-500 leading-relaxed max-w-sm">
+                  {apiKeySet
+                    ? 'Map is loading...'
+                    : 'Provide a VITE_GOOGLE_MAPS_API_KEY in your env file to view interactive routing tiles.'}
                 </p>
               </div>
             )}

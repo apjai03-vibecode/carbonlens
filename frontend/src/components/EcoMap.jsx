@@ -22,6 +22,7 @@ export default function EcoMap() {
           className="text-sm border border-slate-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-leaf-400"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
+          aria-label="Filter eco-friendly alternative facilities"
         >
           {SEARCH_OPTIONS.map((opt) => (
             <option key={opt.query} value={opt.query}>

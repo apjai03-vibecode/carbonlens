@@ -38,10 +38,12 @@ export default function LogActivity({ onAdd }) {
       <h2 className="font-semibold text-slate-800 mb-4">Log an activity</h2>
       <form onSubmit={handleSubmit} className="space-y-3">
         <div>
-          <label className="text-xs font-medium text-slate-500 block mb-1">
+          <label htmlFor="log-category-select" className="text-xs font-medium text-slate-500 block mb-1">
             Category
           </label>
           <select
+            id="log-category-select"
+            aria-label="Category"
             className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-leaf-400"
             value={category}
             onChange={(e) => handleCategoryChange(e.target.value)}
@@ -55,10 +57,12 @@ export default function LogActivity({ onAdd }) {
         </div>
 
         <div>
-          <label className="text-xs font-medium text-slate-500 block mb-1">
+          <label htmlFor="log-activity-select" className="text-xs font-medium text-slate-500 block mb-1">
             Activity
           </label>
           <select
+            id="log-activity-select"
+            aria-label="Activity"
             className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-leaf-400"
             value={activity}
             onChange={(e) => setActivity(e.target.value)}
@@ -72,11 +76,13 @@ export default function LogActivity({ onAdd }) {
         </div>
 
         <div>
-          <label className="text-xs font-medium text-slate-500 block mb-1">
+          <label htmlFor="log-quantity-input" className="text-xs font-medium text-slate-500 block mb-1">
             Quantity ({unit})
           </label>
           <input
             type="number"
+            id="log-quantity-input"
+            aria-label={`Quantity in ${unit}`}
             min="0"
             step="0.5"
             className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-leaf-400"
